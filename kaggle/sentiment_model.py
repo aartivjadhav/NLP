@@ -15,11 +15,23 @@ CSV_PATH = "kaggle/data/1429_1.csv"  # adjust if file name is different
 # Load the data
 def load_data():
     df = pd.read_csv(CSV_PATH, encoding='latin1')
+    # print(df.columns)
     df = df[['reviews.text', 'reviews.rating']].dropna()
     df.columns = ['review', 'rating']
-    # Convert rating to binary sentiment
     df['sentiment'] = df['rating'].apply(lambda x: 1 if x >= 4 else 0)
-    return df
+
+    # Balance the classes by downsampling positives
+    pos = df[df['sentiment'] == 1]
+    neg = df[df['sentiment'] == 0]
+
+    pos_downsampled = pos.sample(len(neg), random_state=42)
+    df_balanced = pd.concat([pos_downsampled, neg]).sample(frac=1, random_state=42)  # Shuffle
+
+    print("✅ Balanced dataset:")
+    # print(df_balanced['sentiment'].value_counts())   
+
+    return df_balanced
+
 
 # Clean the review text
 def clean_text(text):
@@ -27,6 +39,7 @@ def clean_text(text):
     text = re.sub(r"http\S+", "", text)  # remove URLs
     text = re.sub(r"[^a-z\s]", "", text)  # remove punctuation/numbers
     text = re.sub(r"\s+", " ", text).strip()
+    # print(text)
     return text
 
 # Prepare text and labels
@@ -34,6 +47,8 @@ def preprocess(df):
     df['cleaned'] = df['review'].apply(clean_text)
     X = df['cleaned']
     y = df['sentiment']
+    # pd.set_option('display.max_colwidth', None)
+    # print(df[['review','cleaned','sentiment']].sample(5))
     return X, y
 
 # Train and evaluate the model
@@ -65,6 +80,7 @@ def main():
 
     print("🧹 Cleaning text...")
     X, y = preprocess(df)
+    # print(X,y)
 
     print("🤖 Training model...")
     model, tfidf = train_model(X, y)
